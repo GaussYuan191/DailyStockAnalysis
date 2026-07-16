@@ -38,6 +38,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
+# 安装 uv（Rust 编写的极速 Python 包管理器，比 pip 快 10-100x）
+COPY --from=ghcr.io/astral-sh/uv:0.11.21 /uv /usr/local/bin/uv
+# Docker 构建中 cache mount 与目标层不在同一文件系统，强制 copy 模式避免 hardlink 失败
+ENV UV_LINK_MODE=copy
+
 # 创建非 root 用户 (UID 1000)
 RUN groupadd -g 1000 dsa && \
     useradd -u 1000 -g dsa -m dsa
@@ -45,8 +50,17 @@ RUN groupadd -g 1000 dsa && \
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装 Python 依赖
-RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
+# 安装 Python 依赖（使用 uv 替代 pip，大幅加速依赖解析与安装）
+# 分两步：先装 PyPI 包（可缓存），再装 git 依赖（易变，单独分层避免缓存失效）
+RUN --mount=type=cache,target=/root/.cache/uv \
+    grep -v '^git+' requirements.txt > /tmp/pypi-requirements.txt && \
+    uv pip install --system -r /tmp/pypi-requirements.txt && \
+    rm /tmp/pypi-requirements.txt
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    grep '^git+' requirements.txt | while IFS= read -r dep; do \
+        [ -n "$dep" ] && uv pip install --system "$dep"; \
+    done
 
 # 复制应用代码
 COPY *.py ./
