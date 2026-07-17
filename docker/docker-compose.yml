@@ -32,6 +32,11 @@ x-common: &common
     # 如需覆盖前端静态资源，可挂载本地 static 目录
     # - ../static:/app/static:ro
 
+  # 使用 host 网络模式：容器直接使用宿主机网络栈，
+  # 解决云服务器上 Docker 桥接网络无法访问外部 API 的问题。
+  # 注意：使用 host 模式后 ports 映射被忽略，服务直接监听宿主机端口。
+  network_mode: host
+
   environment:
     - TZ=Asia/Shanghai
 
@@ -42,13 +47,19 @@ x-common: &common
     # 代理设置（如果需要）
     # - http_proxy=http://host.docker.internal:10809
     # - https_proxy=http://host.docker.internal:10809
+
+  # DNS 配置：即使使用 host 网络模式也保留，作为额外保障。
+  dns:
+    - 8.8.8.8
+    - 114.114.114.114
+    - 223.5.5.5
   logging:
     driver: "json-file"
     options:
       max-size: "10m"
       max-file: "3"
   # 资源限制：完整分析建议 1G+；512M 仅适合轻量 Web/API、单股、低并发场景，
-  # 且建议设置 MAX_WORKERS=1 并避免同时启动 analyzer 和 server。
+  # 且建议 MAX_WORKERS=1 并避免同时启动 analyzer 和 server。
   deploy:
     resources:
       limits:
@@ -67,6 +78,4 @@ services:
     <<: *common
     container_name: stock-server
     command: ["python", "main.py", "--serve-only", "--host", "0.0.0.0", "--port", "${API_PORT:-8000}"]
-    # 若使用 network_mode: host，则以下 ports 映射无效，端口由 command 中的 --port 指定
-    ports:
-      - "${API_PORT:-8000}:${API_PORT:-8000}"
+    # host 网络模式下 ports 映射无效，端口由 command 中的 --port 指定

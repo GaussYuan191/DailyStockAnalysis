@@ -13,6 +13,7 @@ A股自选股智能分析系统 - AI分析层
 import json
 import logging
 import math
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -3531,9 +3532,19 @@ class GeminiAnalyzer:
                 logger.debug(f"=== 完整 Prompt ({len(prompt)}字符) ===\n{prompt}\n=== End Prompt ===")
 
             # 设置生成配置
+            # 默认超时 120 秒：推理模型（如 deepseek-v4-pro）含 thinking 阶段，
+            # 生成时间较长；云服务器网络延迟也可能叠加。可通过 LLM_TIMEOUT_SEC 覆盖。
+            default_llm_timeout = 120
+            try:
+                env_timeout = os.getenv("LLM_TIMEOUT_SEC")
+                if env_timeout and env_timeout.strip():
+                    default_llm_timeout = int(float(env_timeout))
+            except (ValueError, TypeError):
+                pass
             generation_config = {
                 "temperature": config.llm_temperature,
                 "max_output_tokens": 8192,
+                "timeout": default_llm_timeout,
             }
 
             logger.info(f"[LLM调用] 开始调用 {model_name}...")

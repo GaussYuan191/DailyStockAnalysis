@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 > For user-friendly release highlights, see the [GitHub Releases](https://github.com/ZhuLinsen/daily_stock_analysis/releases) page.
 
 ## [Unreleased]
+- [修复] LLM 分析调用缺少默认超时导致云服务器部署时 litellm 超时失败；`generation_config` 新增 120 秒默认超时，支持通过 `LLM_TIMEOUT_SEC` 环境变量覆盖。
+- [修复] `requirements.txt` 缺少 `orjson` 依赖（litellm 响应解析需要），Docker 镜像运行时报 `No module named 'orjson'`。
+- [改进] `docker-compose.yml` 默认使用 `network_mode: host` 并配置 DNS，解决云服务器上 Docker 桥接网络无法访问外部 API 的问题。
 - [改进] Docker 构建全链路国内镜像加速：基础镜像走 DaoCloud 镜像前缀、PyPI 走清华源、npm 走 npmmirror、apt 走清华源，并用 uv 替代 pip 加速依赖安装；所有镜像源均可通过 --build-arg 覆盖，海外构建不受影响。
 - [改进] 调整数据源默认优先级：PytdxFetcher 从 P2 提升至 P0（TCP 协议不封 IP），EfinanceFetcher 从 P0 降至 P1（东财 HTTP 有限流风险），BaostockFetcher 从 P3 降至 P2。日线数据优先走通达信 TCP，避免东方财富 HTTP 接口被封导致 degradation。
 - [改进] EfinanceFetcher 初始化时禁用 efinance 共享 session 的 urllib3 默认重试（3 次），东方财富接口被限流时连接失败可即时触发数据源切换，减少约 4-5 秒无效等待。
